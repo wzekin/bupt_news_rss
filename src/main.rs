@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate lazy_static;
 
+use chrono::{Date, Local};
 use hyper::rt::Future;
 use hyper::service::service_fn_ok;
 use hyper::{Body, Request, Response, Server};
@@ -9,10 +10,24 @@ use serde_json::Value;
 use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
-use chrono::Local;
 
 lazy_static! {
     static ref RSS_DATA: Mutex<String> = Mutex::new(String::new());
+}
+
+fn get_item(v: &Value, date: String) -> Item {
+    ItemBuilder::default()
+        .title(v["title"].to_string())
+        .link(format!(
+            "https://webapp.bupt.edu.cn/extensions/wap/news/detail.html?id={}&classify_id=tzgg",
+            v["id"].as_str().unwrap()
+        ))
+        .description(v["desc"].to_string())
+        .content(v["text"].to_string())
+        .author(v["author"].to_string())
+        .pub_date(date)
+        .build()
+        .unwrap()
 }
 
 fn get_rss() -> String {
@@ -27,15 +42,7 @@ fn get_rss() -> String {
     for (_, data) in body["data"].as_object().unwrap() {
         let items_ = data.as_array().unwrap();
         for item_ in items_ {
-            let item = ItemBuilder::default()
-                .title(item_["title"].to_string())
-                .link(format!("https://webapp.bupt.edu.cn/extensions/wap/news/detail.html?id={}&classify_id=tzgg",item_["id"].as_str().unwrap()))
-                .description(item_["desc"].to_string())
-                .content(item_["text"].to_string())
-                .author(item_["author"].to_string())
-                .pub_date(date.to_string())
-                .build()
-                .unwrap();
+            let item = get_item(item_, date.to_string());
             items.push(item);
         }
         date = date + chrono::Duration::days(-1);
@@ -50,7 +57,7 @@ fn get_rss() -> String {
         .to_string()
 }
 
-fn hello_world(_req: Request<Body>) -> Response<Body> {
+fn serve_rss(_req: Request<Body>) -> Response<Body> {
     Response::new(Body::from(RSS_DATA.lock().unwrap().to_string()))
 }
 
@@ -71,7 +78,7 @@ fn main() {
     // creates one from our `hello_world` function.
     let new_svc = || {
         // service_fn_ok converts our function into a `Service`
-        service_fn_ok(hello_world)
+        service_fn_ok(serve_rss)
     };
 
     let server = Server::bind(&addr)
