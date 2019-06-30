@@ -11,10 +11,7 @@ use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
 
-#[derive(Clone)]
-pub struct MyRss {
-    pub text: Arc<RwLock<String>>,
-}
+type MyRss = Arc<RwLock<String>>;
 
 fn get_rss() -> String {
     let body: Value = match reqwest::get(
@@ -59,18 +56,14 @@ fn get_item(v: &Value, date: String) -> Item {
         .unwrap()
 }
 
-impl MyRss {
-    pub fn new() -> Self {
-        let new_rss = MyRss {
-            text: Arc::new(RwLock::new(String::new())),
-        };
-        let rc_text = new_rss.text.clone();
-        thread::spawn(move || loop {
-            println!("sync start!");
-            *rc_text.write().unwrap() = get_rss();
-            println!("sync done!");
-            thread::sleep(Duration::from_secs(300));
-        });
-        new_rss
-    }
+pub fn new() -> MyRss {
+    let new_rss = Arc::new(RwLock::new(String::new()));
+    let clone_rss = new_rss.clone();
+    thread::spawn(move || loop {
+        println!("sync start!");
+        *clone_rss.write().unwrap() = get_rss();
+        println!("sync done!");
+        thread::sleep(Duration::from_secs(300));
+    });
+    new_rss
 }
