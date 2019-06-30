@@ -7,11 +7,13 @@
 use chrono::Local;
 use rss::{ChannelBuilder, Item, ItemBuilder};
 use serde_json::Value;
-use std::sync::{Mutex,Arc};
+use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
+
+#[derive(Clone)]
 pub struct MyRss {
-    pub text: Arc<Mutex<String>>,
+    pub text: Arc<RwLock<String>>,
 }
 
 fn get_rss() -> String {
@@ -59,13 +61,14 @@ fn get_item(v: &Value, date: String) -> Item {
 
 impl MyRss {
     pub fn new() -> Self {
-        let  new_rss = MyRss {
-            text: Arc::new(Mutex::new(String::new()))
+        let new_rss = MyRss {
+            text: Arc::new(RwLock::new(String::new())),
         };
         let rc_text = new_rss.text.clone();
         thread::spawn(move || loop {
-            let mut data = rc_text.lock().unwrap();
-            *data = get_rss();
+            println!("sync start!");
+            *rc_text.write().unwrap() = get_rss();
+            println!("sync done!");
             thread::sleep(Duration::from_secs(300));
         });
         new_rss

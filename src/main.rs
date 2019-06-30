@@ -10,16 +10,17 @@ fn main() {
 
     // A `Service` is needed for every connection, so this
     // creates one from our `hello_world` function.
-    let server = Server::bind(&addr)
-        .serve(move || {
-            let rss_data: my_rss::MyRss = MyRss::new();
-            // service_fn_ok converts our function into a `Service`
-            service_fn_ok(move |_: Request<Body>| {
-                Response::new(Body::from(rss_data.text.lock().unwrap().to_string()))
-            })
-        })
-        .map_err(|e| eprintln!("server error: {}", e));
-
+    let rss_data = MyRss::new();
     // Run this server for... forever!
-    hyper::rt::run(server);
+    hyper::rt::run({
+        Server::bind(&addr)
+            .serve(move || {
+                let data = rss_data.clone();
+                // service_fn_ok converts our function into a `Service`
+                service_fn_ok(move |_: Request<Body>| {
+                    Response::new(Body::from((*data.text.read().unwrap()).clone()))
+                })
+            })
+            .map_err(|e| eprintln!("server error: {}", e))
+    });
 }
