@@ -1,12 +1,15 @@
+#[macro_use]
+extern crate log;
 mod my_rss;
 
 use hyper::rt::Future;
 use hyper::service::service_fn_ok;
 use hyper::{Body, Request, Response, Server};
+use log::Level;
 
 fn main() {
+    simple_logger::init_with_level(Level::Info).unwrap();
     let addr = ([0, 0, 0, 0], 3000).into();
-
     // A `Service` is needed for every connection, so this
     // creates one from our `hello_world` function.
     let rss_data = my_rss::new();

@@ -13,12 +13,12 @@ use std::time::Duration;
 
 type MyRss = Arc<RwLock<String>>;
 
-fn get_rss() -> String {
+fn get_rss() -> Result<String, String> {
     let body: Value = match reqwest::get(
         "https://webapp.bupt.edu.cn/extensions/wap/news/get-list.html?p=1&type=tzgg",
     ) {
         Ok(mut data) => data.json().unwrap(),
-        Err(e) => return e.to_string(),
+        Err(e) => return Err(e.to_string()),
     };
 
     let mut items: Vec<Item> = Vec::new();
@@ -31,14 +31,14 @@ fn get_rss() -> String {
         }
         date = date + chrono::Duration::days(-1);
     }
-    ChannelBuilder::default()
+    Ok(ChannelBuilder::default()
         .title("北邮信息门户rss")
         .link("http://my.bupt.edu.cn")
         .description("信息门户rss")
         .items(items)
         .build()
         .unwrap()
-        .to_string()
+        .to_string())
 }
 
 fn get_item(v: &Value, date: String) -> Item {
@@ -60,9 +60,12 @@ pub fn new() -> MyRss {
     let new_rss = Arc::new(RwLock::new(String::new()));
     let clone_rss = new_rss.clone();
     thread::spawn(move || loop {
-        println!("sync start!");
-        *clone_rss.write().unwrap() = get_rss();
-        println!("sync done!");
+        info!("sync start!");
+        match get_rss() {
+            Ok(rss_data) => *clone_rss.write().unwrap() = rss_data,
+            Err(e) => warn!("{}", e),
+        };
+        info!("sync done!");
         thread::sleep(Duration::from_secs(300));
     });
     new_rss
